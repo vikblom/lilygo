@@ -15,3 +15,20 @@ Build and flash the unit
 ```
 pio run --target upload --target monitor
 ```
+
+## Backend
+
+Run the backend server:
+```
+go run ./cmd/server
+```
+it will listen on localhost:8080.
+
+Visit
+```
+http://localhost:8080/
+```
+in a browser to draw images and submit them to the backend.
+
+Edit the harcoded IP in the embedded code to whatever IP this localhost
+has on the wifi that the device connects to.
