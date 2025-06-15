@@ -19,7 +19,7 @@
 // WIFI.
 const char* ssid = ENV_WIFI_SSID;
 const char* password = ENV_WIFI_PASS;
-const String baseurl = "http://192.168.1.145:8080";
+const String baseurl = "http://lily.aniara.dev";
 
 void WiFiGotIP(WiFiEvent_t event, WiFiEventInfo_t info)
 {
@@ -119,7 +119,7 @@ void setup() {
 }
 
 uint32_t next = 0;
-uint32_t interval_ms = 10000;
+uint32_t interval_ms = 30000;
 
 uint32_t next_draw = 0;
 uint8_t dirty = 0;
@@ -169,10 +169,27 @@ void loop() {
 		Serial.println("wifi connected");
 		Serial.println(WiFi.localIP());
 
+
+		sprintf(url, "%s/image", baseurl.c_str());
+		Serial.printf("fetching %s\n", url);
+		HTTPClient http;
+		http.begin(url);
+		int httpResponseCode = http.GET();
+		if (httpResponseCode != 200) {
+			Serial.println("response code: ");
+			Serial.println(httpResponseCode);
+			Serial.println(":-(");
+			return;
+		}
+		Serial.printf("HTTP %d\n", httpResponseCode);
+		String imageId = http.getString();
+		Serial.printf("picked image: %s\n", imageId.c_str());
+		Serial.println();
+
 		// Write frame in chunks.
 		int written = 0;
 		for (int i = 0; i < 4; i++) {
-			sprintf(url, "http://192.168.1.145:8080/image/%d", i);
+			sprintf(url, "%s/image/%s/%d", baseurl.c_str(), imageId.c_str(), i);
 			Serial.printf("fetching %s\n", url);
 			HTTPClient http;
 			http.begin(url);
@@ -191,7 +208,6 @@ void loop() {
 			Serial.printf("http size: %d\n", http.getSize());
 			Serial.printf("body len: %d\n", payload.length());
 			Serial.printf("buffer len: %d\n", EPD_WIDTH * EPD_HEIGHT / 2);
-
 
 			for (int i = 0; i < payload.length(); i++) {
 				framebuffer[written] = payload.charAt(i);

@@ -20,9 +20,9 @@ h1 {
 
 #toolbar {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     padding: 5px;
-    width: 70px;
+    height: 40px;
     background-color: #202020;
 }
 
@@ -35,7 +35,7 @@ h1 {
 }
 
 #toolbar input {
-    width: 100%;
+    width: 100px;
 }
 
 #toolbar button {
