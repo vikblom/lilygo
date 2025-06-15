@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/felixge/httpsnoop"
 	"github.com/google/uuid"
 	"github.com/justinas/alice"
 	"github.com/vikblom/lilygo/pkg/db"
@@ -57,9 +58,30 @@ func New(db *db.DB) (http.Handler, error) {
 
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		slog.Info(fmt.Sprintf("%s %s", r.Method, r.URL.Path))
-		next.ServeHTTP(w, r)
+		m := httpsnoop.CaptureMetrics(next, w, r)
+
+		slog.Info(fmt.Sprintf("[%d] %s %s", m.Code, r.Method, r.URL.Path),
+			"user_agent", r.UserAgent(),
+			"content_length", r.ContentLength,
+			"method", r.Method,
+			"path", r.URL.Path,
+			"client_ip", clientIP(r),
+			"status", m.Code,
+			"duration", m.Duration,
+			"bytes_writter", m.Written,
+		)
 	})
+}
+
+func clientIP(r *http.Request) string {
+	IPAddress := r.Header.Get("X-Real-Ip")
+	if IPAddress == "" {
+		IPAddress = r.Header.Get("X-Forwarded-For")
+	}
+	if IPAddress == "" {
+		IPAddress = r.RemoteAddr
+	}
+	return IPAddress
 }
 
 // contentTypeMiddleware injects the right content type.

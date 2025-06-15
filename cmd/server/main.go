@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"strconv"
 	"syscall"
 	"time"
@@ -70,7 +71,17 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("configure otel: %w", err)
 	}
-	slog.Info("start")
+
+	sha := "(dev)"
+	info, ok := debug.ReadBuildInfo()
+	if ok {
+		for _, v := range info.Settings {
+			if v.Key == "vcs.revision" {
+				sha = v.Value
+			}
+		}
+	}
+	slog.Info(fmt.Sprintf("lilygo %s", sha))
 
 	// Let systemd juggle sockets during service restarts.
 	// https://vincent.bernat.ch/en/blog/2018-systemd-golang-socket-activation
