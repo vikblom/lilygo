@@ -191,7 +191,6 @@ void loop() {
 		for (int i = 0; i < 4; i++) {
 			sprintf(url, "%s/image/%s/%d", baseurl.c_str(), imageId.c_str(), i);
 			Serial.printf("fetching %s\n", url);
-			HTTPClient http;
 			http.begin(url);
 			int httpResponseCode = http.GET();
 			if (httpResponseCode != 200) {

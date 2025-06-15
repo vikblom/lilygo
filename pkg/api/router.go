@@ -9,15 +9,15 @@ import (
 	"image/png"
 	"io"
 	"io/fs"
-	"log"
+	"log/slog"
 	"net/http"
 	"strconv"
-
-	_ "embed"
 
 	"github.com/google/uuid"
 	"github.com/justinas/alice"
 	"github.com/vikblom/lilygo/pkg/db"
+
+	_ "embed"
 )
 
 const (
@@ -57,7 +57,7 @@ func New(db *db.DB) (http.Handler, error) {
 
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("%s %s", r.Method, r.URL.Path)
+		slog.Info(fmt.Sprintf("%s %s", r.Method, r.URL.Path))
 		next.ServeHTTP(w, r)
 	})
 }

@@ -1,3 +1,5 @@
 .pio
 .envrc
 db.sqlite
+server
+_*.sh

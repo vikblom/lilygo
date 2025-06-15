@@ -3,20 +3,97 @@ package main
 import (
 	"context"
 	"errors"
-	"log"
+	"fmt"
+	"log/slog"
+	"net"
 	"net/http"
+	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
-	_ "embed"
-
+	"github.com/coreos/go-systemd/activation"
 	"github.com/vikblom/lilygo/pkg/api"
 	"github.com/vikblom/lilygo/pkg/db"
+	"go.opentelemetry.io/contrib/bridges/otelslog"
+	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
+	"go.opentelemetry.io/otel/log/global"
+	"go.opentelemetry.io/otel/sdk/log"
+	"go.opentelemetry.io/otel/sdk/resource"
+	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
+
+	_ "embed"
 )
 
+func configureOtel(ctx context.Context) error {
+	// Create resource.
+	res, err := resource.Merge(resource.Default(),
+		resource.NewWithAttributes(semconv.SchemaURL,
+			semconv.ServiceName("lilygo"),
+			semconv.ServiceVersion("0.1.0"),
+		),
+	)
+	if err != nil {
+		return fmt.Errorf("resources: %w", err)
+	}
+
+	// LOGS
+	//
+	// Create a logger provider.
+	// You can pass this instance directly when creating bridges.
+	logExporter, err := otlploghttp.New(ctx, otlploghttp.WithInsecure())
+	if err != nil {
+		return fmt.Errorf("otlploghttp: %w", err)
+	}
+	lp := log.NewLoggerProvider(
+		log.WithResource(res),
+		log.WithProcessor(log.NewBatchProcessor(logExporter)),
+	)
+	// Handle shutdown properly so nothing leaks.
+	go func() {
+		<-ctx.Done()
+		if err := lp.Shutdown(context.Background()); err != nil {
+			slog.Warn("log provider shutdown", "error", err)
+		}
+	}()
+	// Use it with SLOG.
+	global.SetLoggerProvider(lp)
+	logger := otelslog.NewLogger("pkgname", otelslog.WithLoggerProvider(lp))
+	slog.SetDefault(logger)
+
+	return nil
+}
+
 func run(ctx context.Context) error {
-	log.Println("start")
+	err := configureOtel(ctx)
+	if err != nil {
+		return fmt.Errorf("configure otel: %w", err)
+	}
+	slog.Info("start")
+
+	// Let systemd juggle sockets during service restarts.
+	// https://vincent.bernat.ch/en/blog/2018-systemd-golang-socket-activation
+	var l net.Listener
+	if os.Getenv("LISTEN_PID") == strconv.Itoa(os.Getpid()) {
+		// Run by systemd.
+		slog.Info("systemd listener")
+		listeners, err := activation.Listeners()
+		if err != nil {
+			return err
+		}
+		if len(listeners) != 1 {
+			return fmt.Errorf("unexpected number of socket activation (%d != 1)", len(listeners))
+		}
+		l = listeners[0]
+	} else {
+		// Running locally.
+		slog.Info("net listener")
+		l, err = net.Listen("tcp", ":9000")
+		if err != nil {
+			return err
+		}
+	}
 
 	db, err := db.New("db.sqlite")
 	if err != nil {
@@ -29,22 +106,24 @@ func run(ctx context.Context) error {
 	}
 
 	srv := http.Server{
-		Addr:    ":9000",
 		Handler: api,
 	}
-
 	go func() {
 		<-ctx.Done()
+		slog.Info("shutdown")
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		_ = srv.Shutdown(ctx)
+		srv.SetKeepAlivesEnabled(false)
+		err := srv.Shutdown(ctx)
+		if err != nil {
+			slog.Info("force shutdown")
+			srv.Close()
+		}
 	}()
-
-	err = srv.ListenAndServe()
+	err = srv.Serve(l)
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
-
 	return ctx.Err()
 }
 
@@ -54,6 +133,6 @@ func main() {
 
 	err := run(ctx)
 	if err != nil && !errors.Is(err, context.Canceled) {
-		log.Fatal(err)
+		slog.Error(fmt.Sprintf("run: %s", err.Error()))
 	}
 }
