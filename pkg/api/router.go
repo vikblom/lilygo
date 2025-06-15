@@ -6,12 +6,14 @@ import (
 	"embed"
 	"encoding/base64"
 	"fmt"
+	"html/template"
 	"image/png"
 	"io"
 	"io/fs"
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/felixge/httpsnoop"
 	"github.com/google/uuid"
@@ -44,11 +46,16 @@ func New(db *db.DB) (http.Handler, error) {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /image", s.handleStoreImage)
+	// Device API endpoints.
 	mux.HandleFunc("GET /image", s.handlePickImage)
 	mux.HandleFunc("GET /image/{id}/{index}", s.handleGetImage)
+
+	// Web API endpoints.
+	mux.HandleFunc("POST /image", s.handleStoreImage)
 	mux.HandleFunc("GET /favicon.svg", s.handleGetFavicon)
 	mux.Handle("GET /", http.FileServerFS(fs))
+	mux.HandleFunc("GET /images", s.handleListImages)
+	mux.HandleFunc("GET /images/{id}", s.handleSpecificImage)
 
 	return alice.New(
 		loggingMiddleware,
@@ -97,7 +104,7 @@ func contentTypeMiddleware(next http.Handler) http.Handler {
 func (s *Server) handleGetFavicon(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Add("content-type", "image/svg+xml")
 	// <link rel="icon" href="data:image/svg+xml">
-	w.Write([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+	_, _ = w.Write([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
 <text y=".9em" font-size="90">🎨️</text>
 </svg>`))
 }
@@ -137,13 +144,69 @@ func (s *Server) storeImage(ctx context.Context, r io.Reader) error {
 	return nil
 }
 
+var listTemplate = template.Must(template.New("list").Parse(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="favicon.svg">
+</head>
+<body>
+<ul>
+  {{range $v := .}}
+    <li><a href=/images/{{$v}}>{{ $v }}</a></li>
+  {{end}}
+</ul>
+</body>
+</html>
+`))
+
+func (s *Server) handleListImages(w http.ResponseWriter, r *http.Request) {
+	ids, err := s.db.ListImages(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if strings.Contains(r.Header.Get("accept"), "text/html") {
+		err = listTemplate.Execute(w, ids)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	} else {
+		// TODO: Accept json.
+		for _, v := range ids {
+			fmt.Fprintf(w, "%s\n", v)
+		}
+	}
+
+}
+
+func (s *Server) handleSpecificImage(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	png, err := s.db.ReadImage(r.Context(), id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Add("content-type", "image/png")
+	_, _ = w.Write(png)
+}
+
 func (s *Server) handlePickImage(w http.ResponseWriter, r *http.Request) {
 	id, err := s.db.RandomImage(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.Write([]byte(id.String()))
+	_, _ = w.Write([]byte(id.String()))
 }
 
 func (s *Server) handleGetImage(w http.ResponseWriter, r *http.Request) {

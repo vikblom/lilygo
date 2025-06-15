@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/uuid"
 	"github.com/vikblom/lilygo/pkg/db"
 )
 
@@ -59,6 +60,33 @@ func TestImageRead(t *testing.T) {
 	}
 
 	want := []byte{1, 2, 3}
+	if d := cmp.Diff(want, got); d != "" {
+		t.Fatalf(" (-want, +got):\n%s", d)
+	}
+}
+
+func TestListImages(t *testing.T) {
+	ctx := context.Background()
+
+	fp := filepath.Join(t.TempDir(), "db.sqlite")
+	db, err := db.New(fp)
+	if err != nil {
+		t.Fatalf("new: %s", err)
+	}
+	want := []uuid.UUID{}
+	for range 3 {
+		id, err := db.AddImage(ctx, []byte{9, 9, 9})
+		if err != nil {
+			t.Fatalf("add image: %s", err)
+		}
+		want = append(want, id)
+	}
+
+	got, err := db.ListImages(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	if d := cmp.Diff(want, got); d != "" {
 		t.Fatalf(" (-want, +got):\n%s", d)
 	}

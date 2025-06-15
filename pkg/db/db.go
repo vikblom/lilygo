@@ -69,3 +69,28 @@ func (db *DB) ReadImage(ctx context.Context, id uuid.UUID) ([]byte, error) {
 
 	return v, nil
 }
+
+func (db *DB) ListImages(ctx context.Context) ([]uuid.UUID, error) {
+	row, err := db.db.QueryContext(ctx,
+		`SELECT id FROM image ORDER BY t desc;`,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query: %w", err)
+	}
+
+	var out []uuid.UUID
+	for row.Next() {
+		err := row.Err()
+		if err != nil {
+			return nil, fmt.Errorf("row: %w", err)
+		}
+		var v uuid.UUID
+		err = row.Scan(&v)
+		if err != nil {
+			return nil, fmt.Errorf("scan: %w", err)
+		}
+		out = append(out, v)
+	}
+
+	return out, nil
+}

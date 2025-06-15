@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/coreos/go-systemd/activation"
+	slogmulti "github.com/samber/slog-multi"
 	"github.com/vikblom/lilygo/pkg/api"
 	"github.com/vikblom/lilygo/pkg/db"
 	"go.opentelemetry.io/contrib/bridges/otelslog"
@@ -60,7 +61,13 @@ func configureOtel(ctx context.Context) error {
 	}()
 	// Use it with SLOG.
 	global.SetLoggerProvider(lp)
-	logger := otelslog.NewLogger("pkgname", otelslog.WithLoggerProvider(lp))
+	logger := slog.New(
+		slogmulti.Fanout(
+			otelslog.NewHandler("lilygo", otelslog.WithLoggerProvider(lp)),
+			slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{}),
+			// ...
+		),
+	)
 	slog.SetDefault(logger)
 
 	return nil
