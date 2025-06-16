@@ -6,6 +6,10 @@ body {
     color: white;
 }
 
+h1,h2,h3,h4,h5,h6 {
+    margin: 0;
+}
+
 h1 {
     background: #7F7FD5;
     background: -webkit-linear-gradient(to right, #91EAE4, #86A8E7, #7F7FD5);
@@ -21,13 +25,13 @@ h1 {
 #toolbar {
     display: flex;
     flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
     padding: 5px;
-    height: 40px;
     background-color: #202020;
-}
-
-#toolbar * {
-    margin-bottom: 6px;
+    gap: 0.5rem;
+    max-width: 540px;
+    justify-content: space-between;
 }
 
 #toolbar label {

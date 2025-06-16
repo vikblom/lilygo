@@ -6,7 +6,7 @@ const canvasOffsetX = canvas.offsetLeft;
 const canvasOffsetY = canvas.offsetTop;
 
 canvas.width = Math.min(540, screen.width-10);
-canvas.height = Math.min(960, screen.height-10-50); // Minus toolbar height.
+canvas.height = Math.min(960, screen.height-10-toolbar.offsetHeight); // Minus toolbar height.
 // canvas.width = window.innerWidth - canvasOffsetX;
 // canvas.height = window.innerHeight - canvasOffsetY;
 
@@ -26,7 +26,16 @@ toolbar.addEventListener('click', e => {
 		method: 'POST',
 		headers: {'Content-Type':'application/x-www-form-urlencoded'},
 		body: dataURL
-	  });
+	  }).then((e) => {
+		if (e.status === 200) {
+		  ctx.clearRect(0, 0, canvas.width, canvas.height);
+		} else {
+		  window.alert("Something went wrong!");
+		}
+	  }).catch((err) => {
+		console.log(err);
+		window.alert("Something went wrong!");
+	  })
     }
 });
 
