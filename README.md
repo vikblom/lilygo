@@ -8,6 +8,7 @@ Export
 ```
 WIFI_SSID
 WIFI_PASS
+BASE_URL
 ```
 in your environment.
 
@@ -22,11 +23,11 @@ Run the backend server:
 ```
 go run ./cmd/server
 ```
-it will listen on localhost:8080.
+it will listen on localhost:9000.
 
 Visit
 ```
-http://localhost:8080/
+http://localhost:9000/
 ```
 in a browser to draw images and submit them to the backend.
 

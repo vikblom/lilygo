@@ -1,6 +1,7 @@
 // Arduino framework.
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <EEPROM.h>
 
 // Lilygo EPD47 driver.
 // x spans the width of the display (long side).
@@ -17,7 +18,7 @@
 // WIFI.
 const char* ssid = ENV_WIFI_SSID;
 const char* password = ENV_WIFI_PASS;
-const String baseurl = "http://lily.aniara.dev";
+const char* baseurl = ENV_BASE_URL;
 
 void WiFiGotIP(WiFiEvent_t event, WiFiEventInfo_t info)
 {
@@ -64,7 +65,7 @@ void setup() {
 }
 
 uint32_t next = 0;
-uint32_t interval_ms = 30000;
+uint32_t interval_ms = 60000;
 
 uint32_t next_draw = 0;
 uint8_t dirty = 0;
@@ -73,7 +74,29 @@ int line = 0;
 
 char url[1024];
 
+int incomingByte = 0; // for incoming serial data
+
+int readn = 0;
+char readbuf[1024];
+
 void loop() {
+
+	/*
+	while (Serial.available() > 0) {
+		readbuf[readn++] = char(Serial.read() % 128);
+		Serial.print("I received: ");
+		Serial.println(readbuf[readn-1], DEC);
+
+		if (readn >= 1024 || readbuf[readn-1] == '\n' || readbuf[readn-1] == '\r') {
+			Serial.printf("Read line: %s\n", readbuf);
+			handle_line(readbuf);
+
+			// Reset
+			readn = 0;
+			memset(readbuf, 0, 1024);
+		}
+	}
+	*/
 
     if (millis() > next) {
         next = millis() + interval_ms;
@@ -96,7 +119,7 @@ void loop() {
 		Serial.println(WiFi.localIP());
 
 
-		sprintf(url, "%s/image", baseurl.c_str());
+		sprintf(url, "%s/image", baseurl);
 		Serial.printf("fetching %s\n", url);
 		HTTPClient http;
 		http.begin(url);
@@ -115,7 +138,7 @@ void loop() {
 		// Write frame in chunks.
 		int written = 0;
 		for (int i = 0; i < 4; i++) {
-			sprintf(url, "%s/image/%s/%d", baseurl.c_str(), imageId.c_str(), i);
+			sprintf(url, "%s/image/%s/%d", baseurl, imageId.c_str(), i);
 			Serial.printf("fetching %s\n", url);
 			http.begin(url);
 			int httpResponseCode = http.GET();
@@ -147,6 +170,29 @@ void loop() {
 		epd_poweroff();
 	}
 	delay(10);
+}
+
+void unused_handle_line(char *s) {
+	size_t len = strlen(s);
+	Serial.printf("len: %d\n", len);
+
+	if (0 == strncmp(s, "ssid:", 5) && len > 5) {
+		Serial.printf("ssid: '%s'\n", s);
+
+
+	} else if (0 == strncmp(s, "pass:", 5) && len > 5) {
+		Serial.println("pass:<pass>");
+		Serial.printf("pass: '%s'\n", s);
+
+	} else {
+		Serial.println("");
+		Serial.println("lilygo drawing device");
+		Serial.println("Input wifi config <ssid> and <pass> into serial with \\r terminated lines.");
+		Serial.println("Like this:");
+		Serial.println("ssid:<ssid>");
+		Serial.println("pass:<pass>");
+		Serial.println("");
+	}
 }
 
 // Thick line Bresenham.
