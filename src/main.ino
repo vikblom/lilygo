@@ -1,8 +1,6 @@
 // Arduino framework.
 #include <WiFi.h>
 #include <HTTPClient.h>
-// From sensorlib
-#include <TouchDrvGT911.hpp>
 
 // Lilygo EPD47 driver.
 // x spans the width of the display (long side).
@@ -30,9 +28,6 @@ void WiFiGotIP(WiFiEvent_t event, WiFiEventInfo_t info)
 
 // Display
 uint8_t *framebuffer = NULL;
-
-// Touch
-TouchDrvGT911 touch;
 
 void setup() {
     Serial.begin(115200);
@@ -66,56 +61,6 @@ void setup() {
     epd_init();
     epd_poweron();
     epd_clear();
-
-	// Draw something?
-
-    // epd_poweroff();
-
-
-    //* Sleep wakeup must wait one second, otherwise the touch device cannot be addressed
-    if (esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_UNDEFINED) {
-		Serial.println("sleep 1s");
-        delay(1000);
-    }
-
-    Wire.begin(BOARD_SDA, BOARD_SCL);
-
-    // Assuming that the previous touch was in sleep state, wake it up
-    pinMode(TOUCH_INT, OUTPUT);
-    digitalWrite(TOUCH_INT, HIGH);
-
-    /*
-	 * The touch reset pin uses hardware pull-up,
-	 * and the function of setting the I2C device address cannot be used.
-	 * Use scanning to obtain the touch device address.*/
-    uint8_t touchAddress = 0;
-    Wire.beginTransmission(0x14);
-    if (Wire.endTransmission() == 0) {
-        touchAddress = 0x14;
-    }
-    Wire.beginTransmission(0x5D);
-    if (Wire.endTransmission() == 0) {
-        touchAddress = 0x5D;
-    }
-    if (touchAddress == 0) {
-        while (1) {
-            Serial.println("Failed to find GT911 - check your wiring!");
-            delay(1000);
-        }
-    }
-    touch.setPins(-1, TOUCH_INT);
-    if (!touch.begin(Wire, touchAddress, BOARD_SDA, BOARD_SCL )) {
-        while (1) {
-            Serial.println("Failed to find GT911 - check your wiring!");
-            delay(1000);
-        }
-    }
-    touch.setMaxCoordinates(EPD_WIDTH, EPD_HEIGHT);
-    touch.setSwapXY(true);
-    touch.setMirrorXY(false, true);
-
-    Serial.println("Started Touchscreen poll...");
-
 }
 
 uint32_t next = 0;
@@ -126,28 +71,9 @@ uint8_t dirty = 0;
 
 int line = 0;
 
-int16_t  x, y, prev_x, prev_y;
-uint32_t prev_touch_ms;
-
 char url[1024];
 
 void loop() {
-
-    if (0) { // (touched) {
-		uint8_t touched = touch.getPoint(&x, &y);
-		Serial.printf("touch at %d %d (%d)\n", x, y, prev_touch_ms);
-		dirty = 1;
-		// epd_fill_circle(x,y,10,0x00, framebuffer);
-		if (millis() - prev_touch_ms < 100) {
-			//epd_fill_circle(x, y, 4, 0x00, framebuffer);
-			draw_thick_line(x, y, prev_x, prev_y, 10.0, framebuffer);
-		} else {
-			//epd_fill_circle(x, y, 10, 0x00, framebuffer);
-		}
-		prev_touch_ms = millis();
-		prev_x = x;
-		prev_y = y;
-	}
 
     if (millis() > next) {
         next = millis() + interval_ms;
