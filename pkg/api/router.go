@@ -19,6 +19,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/justinas/alice"
 	"github.com/vikblom/lilygo/pkg/db"
+	"golang.org/x/time/rate"
 
 	_ "embed"
 )
@@ -59,13 +60,30 @@ func New(db *db.DB) (http.Handler, error) {
 
 	return alice.New(
 		loggingMiddleware,
+		limitMiddleware,
 		contentTypeMiddleware,
 	).Then(mux), nil
+}
+
+func limitMiddleware(next http.Handler) http.Handler {
+	var limiter = rate.NewLimiter(3, 10)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if limiter.Allow() == false {
+			http.Error(w, http.StatusText(429), http.StatusTooManyRequests)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }
 
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		m := httpsnoop.CaptureMetrics(next, w, r)
+
+		if r.Method == "GET" && m.Code == 200 {
+			return
+		}
 
 		slog.Info(fmt.Sprintf("[%d] %s %s", m.Code, r.Method, r.URL.Path),
 			"user_agent", r.UserAgent(),
@@ -109,7 +127,14 @@ func (s *Server) handleGetFavicon(w http.ResponseWriter, _ *http.Request) {
 </svg>`))
 }
 
+var storeLimiter = rate.NewLimiter(1, 1)
+
 func (s *Server) handleStoreImage(w http.ResponseWriter, r *http.Request) {
+	if storeLimiter.Allow() == false {
+		http.Error(w, http.StatusText(429), http.StatusTooManyRequests)
+		return
+	}
+
 	err := s.storeImage(r.Context(), r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
