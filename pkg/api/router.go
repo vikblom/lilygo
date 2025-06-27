@@ -68,7 +68,7 @@ func New(db *db.DB) (http.Handler, error) {
 func limitMiddleware(next http.Handler) http.Handler {
 	var limiter = rate.NewLimiter(3, 10)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if limiter.Allow() == false {
+		if !limiter.Allow() {
 			http.Error(w, http.StatusText(429), http.StatusTooManyRequests)
 			return
 		}
@@ -130,7 +130,7 @@ func (s *Server) handleGetFavicon(w http.ResponseWriter, _ *http.Request) {
 var storeLimiter = rate.NewLimiter(1, 1)
 
 func (s *Server) handleStoreImage(w http.ResponseWriter, r *http.Request) {
-	if storeLimiter.Allow() == false {
+	if !storeLimiter.Allow() {
 		http.Error(w, http.StatusText(429), http.StatusTooManyRequests)
 		return
 	}

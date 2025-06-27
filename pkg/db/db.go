@@ -44,6 +44,16 @@ func (db *DB) AddImage(ctx context.Context, bs []byte) (uuid.UUID, error) {
 	return id, nil
 }
 
+func (db *DB) RemoveImage(ctx context.Context, id uuid.UUID) error {
+	_, err := db.db.ExecContext(ctx,
+		`DELETE FROM image WHERE id = ?;`, id,
+	)
+	if err != nil {
+		return fmt.Errorf("delete: %w", err)
+	}
+	return nil
+}
+
 func (db *DB) RandomImage(ctx context.Context) (uuid.UUID, error) {
 	row := db.db.QueryRowContext(ctx,
 		`SELECT id FROM image ORDER BY random() LIMIT 1 ;`,
