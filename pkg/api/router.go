@@ -5,6 +5,7 @@ import (
 	"context"
 	"embed"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"image/png"
@@ -14,6 +15,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/felixge/httpsnoop"
 	"github.com/google/uuid"
@@ -58,6 +60,11 @@ func New(db *db.DB) (http.Handler, error) {
 	mux.HandleFunc("GET /images", s.handleListImages)
 	mux.HandleFunc("GET /images/{id}", s.handleSpecificImage)
 
+	// Dev endpoints.
+	mux.HandleFunc("GET /500", func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "crash bang ka-blow!", http.StatusInternalServerError)
+	})
+
 	return alice.New(
 		loggingMiddleware,
 		limitMiddleware,
@@ -77,24 +84,74 @@ func limitMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+type snooper struct {
+	headerWritten bool
+	Status        int
+	Response      bytes.Buffer
+}
+
+func (s *snooper) Hooks() httpsnoop.Hooks {
+	return httpsnoop.Hooks{
+		WriteHeader: func(next httpsnoop.WriteHeaderFunc) httpsnoop.WriteHeaderFunc {
+			return func(status int) {
+				if !s.headerWritten {
+					s.headerWritten = true
+					s.Status = status
+				}
+				next(status)
+			}
+		},
+		Write: func(next httpsnoop.WriteFunc) httpsnoop.WriteFunc {
+			return func(bs []byte) (int, error) {
+				if !s.headerWritten {
+					s.headerWritten = true
+					s.Status = 200
+				}
+				_, _ = s.Response.Write(bytes.Clone(bs))
+				return next(bs)
+			}
+		},
+	}
+}
+
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		m := httpsnoop.CaptureMetrics(next, w, r)
 
-		if r.Method == "GET" && m.Code == 200 {
+		var s snooper
+		sw := httpsnoop.Wrap(w, s.Hooks())
+
+		start := time.Now()
+		next.ServeHTTP(sw, r)
+		duration := time.Since(start)
+
+		if r.Method == "GET" && s.Status == 200 {
 			return
 		}
 
-		slog.Info(fmt.Sprintf("[%d] %s %s", m.Code, r.Method, r.URL.Path),
-			"user_agent", r.UserAgent(),
-			"content_length", r.ContentLength,
-			"method", r.Method,
-			"path", r.URL.Path,
-			"client_ip", clientIP(r),
-			"status", m.Code,
-			"duration", m.Duration,
-			"bytes_writter", m.Written,
-		)
+		lvl := slog.LevelInfo
+		msg := fmt.Sprintf("[%d] %s %s", s.Status, r.Method, r.URL.Path)
+		attrs := []slog.Attr{
+			slog.String("user_agent", r.UserAgent()),
+			slog.Int64("content_length", r.ContentLength),
+			slog.String("method", r.Method),
+			slog.String("path", r.URL.Path),
+			slog.String("client_ip", clientIP(r)),
+			slog.Int("status", s.Status),
+			slog.Int64("duration_ms", duration.Milliseconds()),
+			slog.Int("bytes_writter", s.Response.Len()),
+		}
+
+		if s.Status >= 500 {
+			lvl = slog.LevelError
+			body := s.Response.String()
+			var dst bytes.Buffer
+			if err := json.Compact(&dst, s.Response.Bytes()); err == nil {
+				body = dst.String()
+			}
+			attrs = append(attrs, slog.String("response", body))
+		}
+
+		slog.LogAttrs(r.Context(), lvl, msg, attrs...)
 	})
 }
 
