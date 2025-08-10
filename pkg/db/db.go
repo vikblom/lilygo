@@ -14,10 +14,14 @@ type DB struct {
 }
 
 func New(path string) (*DB, error) {
-	db, err := sql.Open("sqlite", path)
+	dsn := path + "?cache=shared"
+	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("sql open: %w", err)
 	}
+
+	// https://github.com/mattn/go-sqlite3?tab=readme-ov-file#faq
+	db.SetMaxOpenConns(1)
 
 	_, err = db.ExecContext(
 		context.Background(),
@@ -87,6 +91,7 @@ func (db *DB) ListImages(ctx context.Context) ([]uuid.UUID, error) {
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}
+	defer row.Close()
 
 	var out []uuid.UUID
 	for row.Next() {
