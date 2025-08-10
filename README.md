@@ -2,6 +2,13 @@
 
 LilyGo T5 with ESP32S3 and EPD47 E-ink display.
 
+## Repository structure
+
+The project consists of three parts:
+- Embedded C/C++ code running on a LilyGo T5 device. See `platformio.ini` and `src/`.
+- Backend Go code running on a server connected to the internet. See `cmd/` and `pkg/`.
+- Frotend Javascript, HTML and CSS for web clients. See `pkg/api/static`.
+
 ## Setup
 
 Export
