@@ -66,9 +66,9 @@ func New(db *db.DB) (http.Handler, error) {
 	})
 
 	return alice.New(
+		limitMiddleware,
 		loggingMiddleware,
 		crossOriginMiddleware,
-		limitMiddleware,
 		contentTypeMiddleware,
 	).Then(mux), nil
 }
@@ -134,13 +134,17 @@ func loggingMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		clean := func(s string) string {
+			return strings.ToValidUTF8(s, "")
+		}
+
 		lvl := slog.LevelInfo
-		msg := fmt.Sprintf("[%d] %s %s", s.Status, r.Method, r.URL.Path)
+		msg := fmt.Sprintf("[%d] %s %s", s.Status, r.Method, clean(r.URL.Path))
 		attrs := []slog.Attr{
 			slog.String("user_agent", r.UserAgent()),
 			slog.Int64("content_length", r.ContentLength),
 			slog.String("method", r.Method),
-			slog.String("path", r.URL.Path),
+			slog.String("path", clean(r.URL.Path)),
 			slog.String("client_ip", clientIP(r)),
 			slog.Int("status", s.Status),
 			slog.Int64("duration_ms", duration.Milliseconds()),

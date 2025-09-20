@@ -19,11 +19,15 @@ import (
 	"github.com/vikblom/lilygo/pkg/api"
 	"github.com/vikblom/lilygo/pkg/db"
 	"go.opentelemetry.io/contrib/bridges/otelslog"
+	"go.opentelemetry.io/contrib/instrumentation/runtime"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/sdk/log"
+	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
-	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 
 	_ "embed"
 )
@@ -70,6 +74,29 @@ func configureOtel(ctx context.Context) error {
 	)
 	slog.SetDefault(logger)
 
+	// METRICS
+	//
+	metricExporter, err := otlpmetrichttp.New(ctx, otlpmetrichttp.WithInsecure())
+	if err != nil {
+		return fmt.Errorf("otlpmetrichttp: %w", err)
+	}
+	mp := metric.NewMeterProvider(
+		metric.WithResource(res),
+		metric.WithReader(metric.NewPeriodicReader(metricExporter)),
+	)
+	go func() {
+		<-ctx.Done()
+		if err := mp.Shutdown(context.Background()); err != nil {
+			slog.Warn("metric provider shutdown", "error", err)
+		}
+	}()
+	// Baseline metrics of the Go runtime.
+	err = runtime.Start()
+	if err != nil {
+		return fmt.Errorf("runtime metrics: %w", err)
+	}
+	otel.SetMeterProvider(mp)
+
 	return nil
 }
 
@@ -88,7 +115,7 @@ func run(ctx context.Context) error {
 			}
 		}
 	}
-	slog.Info(fmt.Sprintf("lilygo %s", sha))
+	slog.Info(fmt.Sprintf("lilygo: %s", sha))
 
 	// Let systemd juggle sockets during service restarts.
 	// https://vincent.bernat.ch/en/blog/2018-systemd-golang-socket-activation
@@ -124,7 +151,8 @@ func run(ctx context.Context) error {
 	}
 
 	srv := http.Server{
-		Handler: api,
+		Handler:  api,
+		ErrorLog: slog.NewLogLogger(slog.Default().Handler(), slog.LevelDebug),
 	}
 	go func() {
 		<-ctx.Done()
