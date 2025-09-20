@@ -67,9 +67,15 @@ func New(db *db.DB) (http.Handler, error) {
 
 	return alice.New(
 		loggingMiddleware,
+		crossOriginMiddleware,
 		limitMiddleware,
 		contentTypeMiddleware,
 	).Then(mux), nil
+}
+
+func crossOriginMiddleware(next http.Handler) http.Handler {
+	cop := http.NewCrossOriginProtection()
+	return cop.Handler(next)
 }
 
 func limitMiddleware(next http.Handler) http.Handler {
@@ -139,6 +145,8 @@ func loggingMiddleware(next http.Handler) http.Handler {
 			slog.Int("status", s.Status),
 			slog.Int64("duration_ms", duration.Milliseconds()),
 			slog.Int("bytes_writter", s.Response.Len()),
+			slog.String("origin", r.Header.Get("origin")),
+			slog.String("sec-fetch-site", r.Header.Get("sec-fetch-site")),
 		}
 
 		if s.Status >= 500 {
@@ -320,7 +328,7 @@ func (s *Server) handleGetImage(w http.ResponseWriter, r *http.Request) {
 	// 	return
 	// }
 	if err != nil {
-		http.Error(w, fmt.Sprintf("png decode: %s", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("read image: %s", err), http.StatusInternalServerError)
 		return
 	}
 

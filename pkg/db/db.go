@@ -95,16 +95,16 @@ func (db *DB) ListImages(ctx context.Context) ([]uuid.UUID, error) {
 
 	var out []uuid.UUID
 	for row.Next() {
-		err := row.Err()
-		if err != nil {
-			return nil, fmt.Errorf("row: %w", err)
-		}
 		var v uuid.UUID
 		err = row.Scan(&v)
 		if err != nil {
 			return nil, fmt.Errorf("scan: %w", err)
 		}
 		out = append(out, v)
+	}
+	err = row.Err()
+	if err != nil {
+		return nil, fmt.Errorf("err: %w", err)
 	}
 
 	return out, nil
