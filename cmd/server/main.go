@@ -144,6 +144,7 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	defer db.Close()
 
 	api, err := api.New(db)
 	if err != nil {
@@ -174,7 +175,7 @@ func run(ctx context.Context) error {
 }
 
 func main() {
-	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGKILL)
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGKILL, syscall.SIGINT)
 	defer cancel()
 
 	err := run(ctx)

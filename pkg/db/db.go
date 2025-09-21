@@ -37,6 +37,10 @@ func New(path string) (*DB, error) {
 	return &DB{db}, nil
 }
 
+func (db *DB) Close() error {
+	return db.db.Close()
+}
+
 func (db *DB) AddImage(ctx context.Context, bs []byte) (uuid.UUID, error) {
 	id := uuid.New()
 	_, err := db.db.ExecContext(ctx,

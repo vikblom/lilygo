@@ -54,9 +54,9 @@ func New(db *db.DB) (http.Handler, error) {
 	mux.HandleFunc("GET /image/{id}/{index}", s.handleGetImage)
 
 	// Web API endpoints.
+	mux.Handle("GET /", http.FileServerFS(fs))
 	mux.HandleFunc("POST /image", s.handleStoreImage)
 	mux.HandleFunc("GET /favicon.svg", s.handleGetFavicon)
-	mux.Handle("GET /", http.FileServerFS(fs))
 	mux.HandleFunc("GET /images", s.handleListImages)
 	mux.HandleFunc("GET /images/{id}", s.handleSpecificImage)
 
@@ -70,6 +70,7 @@ func New(db *db.DB) (http.Handler, error) {
 		loggingMiddleware,
 		crossOriginMiddleware,
 		contentTypeMiddleware,
+		recoverMiddleware,
 	).Then(mux), nil
 }
 
@@ -118,6 +119,18 @@ func (s *snooper) Hooks() httpsnoop.Hooks {
 			}
 		},
 	}
+}
+
+func recoverMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				w.Header().Set("Connection", "close")
+				slog.ErrorContext(r.Context(), "panic in handler", "error", err)
+			}
+		}()
+		next.ServeHTTP(w, r)
+	})
 }
 
 func loggingMiddleware(next http.Handler) http.Handler {
