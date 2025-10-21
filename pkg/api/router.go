@@ -6,6 +6,7 @@ import (
 	"embed"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"image/png"
@@ -72,6 +73,15 @@ func New(db *db.DB) (http.Handler, error) {
 		contentTypeMiddleware,
 		recoverMiddleware,
 	).Then(mux), nil
+}
+
+func errResponse(w http.ResponseWriter, err error) {
+	var status = http.StatusInternalServerError
+	switch {
+	case errors.Is(err, context.Canceled):
+		status = http.StatusRequestTimeout
+	}
+	http.Error(w, err.Error(), status)
 }
 
 func crossOriginMiddleware(next http.Handler) http.Handler {
@@ -219,7 +229,7 @@ func (s *Server) handleStoreImage(w http.ResponseWriter, r *http.Request) {
 
 	err := s.storeImage(r.Context(), r.Body)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		errResponse(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -271,14 +281,14 @@ var listTemplate = template.Must(template.New("list").Parse(`<!DOCTYPE html>
 func (s *Server) handleListImages(w http.ResponseWriter, r *http.Request) {
 	ids, err := s.db.ListImages(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		errResponse(w, err)
 		return
 	}
 
 	if strings.Contains(r.Header.Get("accept"), "text/html") {
 		err = listTemplate.Execute(w, ids)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			errResponse(w, err)
 			return
 		}
 	} else {
@@ -293,13 +303,13 @@ func (s *Server) handleListImages(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleSpecificImage(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		errResponse(w, err)
 		return
 	}
 
 	png, err := s.db.ReadImage(r.Context(), id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		errResponse(w, err)
 		return
 	}
 
@@ -310,7 +320,7 @@ func (s *Server) handleSpecificImage(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handlePickImage(w http.ResponseWriter, r *http.Request) {
 	id, err := s.db.RandomImage(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		errResponse(w, err)
 		return
 	}
 	_, _ = w.Write([]byte(id.String()))
@@ -319,16 +329,16 @@ func (s *Server) handlePickImage(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleGetImage(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		errResponse(w, err)
 		return
 	}
 	idx, err := strconv.Atoi(r.PathValue("index"))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		errResponse(w, err)
 		return
 	}
 	if idx < 0 || 4 <= idx {
-		http.Error(w, fmt.Sprintf("idx %d out of bounds [0,4)", idx), http.StatusInternalServerError)
+		errResponse(w, fmt.Errorf("idx %d out of bounds [0,4)", idx))
 		return
 	}
 
@@ -345,13 +355,13 @@ func (s *Server) handleGetImage(w http.ResponseWriter, r *http.Request) {
 	// 	return
 	// }
 	if err != nil {
-		http.Error(w, fmt.Sprintf("read image: %s", err), http.StatusInternalServerError)
+		errResponse(w, fmt.Errorf("read image: %w", err))
 		return
 	}
 
 	image, err := png.Decode(bytes.NewBuffer(bs))
 	if err != nil {
-		http.Error(w, fmt.Sprintf("png decode: %s", err), http.StatusInternalServerError)
+		errResponse(w, fmt.Errorf("png decode: %w", err))
 		return
 	}
 	max := image.Bounds().Max
