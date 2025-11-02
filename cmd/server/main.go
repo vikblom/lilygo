@@ -31,6 +31,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	_ "embed"
+	_ "net/http/pprof"
 )
 
 func main() {
@@ -75,7 +76,6 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-
 	srv := http.Server{
 		Handler:  api,
 		ErrorLog: slog.NewLogLogger(slog.Default().Handler(), slog.LevelDebug),
@@ -116,6 +116,10 @@ func run(ctx context.Context) error {
 		}
 		return errs
 	})
+	// Debug routes, don't care about shutdown.
+	go func() {
+		_ = http.ListenAndServe(":9001", nil) // API port +1.
+	}()
 	return g.Wait()
 }
 

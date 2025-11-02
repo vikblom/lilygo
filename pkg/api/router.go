@@ -153,7 +153,7 @@ func loggingMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(sw, r)
 		duration := time.Since(start)
 
-		if r.Method == "GET" && s.Status == 200 {
+		if r.Method == "GET" && (s.Status == 200 || s.Status == 404) {
 			return
 		}
 
