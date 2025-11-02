@@ -65,6 +65,7 @@ func New(db *db.DB) (http.Handler, error) {
 	mux.HandleFunc("GET /500", func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "crash bang ka-blow!", http.StatusInternalServerError)
 	})
+	mux.HandleFunc("POST /echo", s.handleEcho)
 
 	return alice.New(
 		limitMiddleware,
@@ -178,12 +179,13 @@ func loggingMiddleware(next http.Handler) http.Handler {
 
 		if s.Status >= 500 {
 			lvl = slog.LevelError
+			// Pick up the error from errResponse.
 			body := s.Response.String()
 			var dst bytes.Buffer
 			if err := json.Compact(&dst, s.Response.Bytes()); err == nil {
 				body = dst.String()
 			}
-			attrs = append(attrs, slog.String("response", body))
+			attrs = append(attrs, slog.String("error", body))
 		}
 
 		slog.LogAttrs(r.Context(), lvl, msg, attrs...)
@@ -217,6 +219,15 @@ func (s *Server) handleGetFavicon(w http.ResponseWriter, _ *http.Request) {
 	_, _ = w.Write([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
 <text y=".9em" font-size="90">🎨️</text>
 </svg>`))
+}
+
+func (s *Server) handleEcho(w http.ResponseWriter, r *http.Request) {
+	bs, err := io.ReadAll(r.Body)
+	if err != nil {
+		errResponse(w, err)
+		return
+	}
+	slog.Info("echo", "body", string(bs))
 }
 
 var storeLimiter = rate.NewLimiter(1, 1)

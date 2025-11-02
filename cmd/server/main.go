@@ -9,15 +9,12 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"runtime/debug"
 	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/coreos/go-systemd/activation"
 	slogmulti "github.com/samber/slog-multi"
-	"github.com/vikblom/lilygo/pkg/api"
-	"github.com/vikblom/lilygo/pkg/db"
 	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"
@@ -30,8 +27,11 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/vikblom/lilygo/pkg/api"
+	"github.com/vikblom/lilygo/pkg/db"
+	"github.com/vikblom/lilygo/pkg/debug"
+
 	_ "embed"
-	_ "net/http/pprof"
 )
 
 func main() {
@@ -50,16 +50,7 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("configure otel: %w", err)
 	}
 
-	sha := "(dev)"
-	info, ok := debug.ReadBuildInfo()
-	if ok {
-		for _, v := range info.Settings {
-			if v.Key == "vcs.revision" {
-				sha = v.Value
-			}
-		}
-	}
-	slog.Info(fmt.Sprintf("lilygo: %s", sha))
+	slog.Info(fmt.Sprintf("lilygo: %s", debug.BuildInfo()))
 
 	l, err := listen()
 	if err != nil {
@@ -117,8 +108,9 @@ func run(ctx context.Context) error {
 		return errs
 	})
 	// Debug routes, don't care about shutdown.
+	// Reachable directly on tailscale interface.
 	go func() {
-		_ = http.ListenAndServe(":9001", nil) // API port +1.
+		_ = http.ListenAndServe(":9001", debug.Router()) // API port +1.
 	}()
 	return g.Wait()
 }
@@ -195,12 +187,12 @@ func configureOtel(ctx context.Context) error {
 		metric.WithResource(res),
 		metric.WithReader(metric.NewPeriodicReader(metricExporter)),
 	)
+	otel.SetMeterProvider(mp)
 	// Baseline metrics of the Go runtime.
 	err = runtime.Start()
 	if err != nil {
 		return fmt.Errorf("runtime metrics: %w", err)
 	}
-	otel.SetMeterProvider(mp)
 
 	return nil
 }
