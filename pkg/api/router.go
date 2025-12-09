@@ -314,7 +314,7 @@ func (s *Server) handleListImages(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleSpecificImage(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
-		errResponse(w, err)
+		http.Error(w, fmt.Sprintf("malformed UUID: %s", err), http.StatusBadRequest)
 		return
 	}
 
