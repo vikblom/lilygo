@@ -8,6 +8,7 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
 	github.com/justinas/alice v1.2.0
+	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/samber/slog-multi v1.4.0
 	go.opentelemetry.io/contrib/bridges/otelslog v0.13.0
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.63.0

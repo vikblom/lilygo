@@ -14,7 +14,7 @@ type DB struct {
 }
 
 func New(path string) (*DB, error) {
-	dsn := path + "?cache=shared"
+	dsn := path + "?cache=shared&_pragma=busy_timeout(500)"
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("sql open: %w", err)

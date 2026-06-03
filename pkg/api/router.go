@@ -21,6 +21,7 @@ import (
 	"github.com/felixge/httpsnoop"
 	"github.com/google/uuid"
 	"github.com/justinas/alice"
+	"github.com/nfnt/resize"
 	"github.com/vikblom/lilygo/pkg/db"
 	"golang.org/x/time/rate"
 
@@ -375,7 +376,13 @@ func (s *Server) handleGetImage(w http.ResponseWriter, r *http.Request) {
 		errResponse(w, fmt.Errorf("png decode: %w", err))
 		return
 	}
+
+	// Figure out if the image must be rescaled.
 	max := image.Bounds().Max
+	if max.X < height || max.Y < width {
+		image = resize.Resize(height, width, image, resize.Lanczos3)
+		max = image.Bounds().Max
+	}
 
 	for i := range framebuffer {
 		framebuffer[i] = 0xFF // White
