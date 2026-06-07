@@ -25,21 +25,88 @@ h1 {
 #toolbar {
     display: flex;
     flex-direction: row;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     padding: 5px;
     background-color: #202020;
     gap: 0.5rem;
-    max-width: 540px;
+    width: min(540px, calc(100vw - 10px));
+    box-sizing: border-box;
     justify-content: space-between;
+    overflow-x: hidden;
+    margin: 0;
+}
+
+.drawing-board {
+    width: min(540px, calc(100vw - 10px));
+    margin: 0;
+}
+
+.drawing-board canvas {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+#toolbar h3 {
+    flex: 0 0 auto;
+    margin: 0;
+    white-space: nowrap;
+    font-size: 1rem;
+}
+
+#toolbar .controls {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+#toolbar .slider-field {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-width: 90px;
 }
 
 #toolbar label {
     font-size: 12px;
+    margin-bottom: 0.25rem;
 }
 
-#toolbar input {
-    width: 100px;
+#toolbar .range-wrapper input[type=range] {
+    width: 100%;
+}
+
+#toolbar .range-wrapper {
+    position: relative;
+}
+
+#toolbar input[type=range] {
+    width: 100%;
+}
+
+#toolbar .slider-field {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-width: 140px;
+}
+
+#toolbar .range-value {
+    position: absolute;
+    top: 50%;
+    left: calc(var(--range-percent, 0%) + 10px);
+    transform: translateY(-50%);
+    white-space: nowrap;
+    background: #2a2a2a;
+    color: #fff;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 11px;
+    pointer-events: none;
 }
 
 #toolbar button {
@@ -47,5 +114,10 @@ h1 {
     border: none;
     border-radius: 4px;
     color:white;
-    padding: 2px;
+    padding: 2px 8px;
+    cursor: pointer;
+}
+
+#toolbar button:hover {
+    background-color: #1a73e8;
 }
