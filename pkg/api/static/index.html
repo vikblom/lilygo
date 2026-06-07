@@ -10,12 +10,22 @@
 <body>
   <div id="toolbar">
     <h3>🎨 Måla</h3>
-    <div>
-      <label for="lineWidth">Line Width</label>
-      <input id="lineWidth" name='lineWidth' type="number" value="5">
-      <button id="clear">Clear</button>
-      <button id="submit">Submit</button>
+    <div class="controls">
+      <div class="slider-field">
+        <div class="range-wrapper">
+          <input id="lineWidth" name="lineWidth" type="range" min="1" max="50" step="1" value="5">
+          <span class="range-value" aria-hidden="true">5</span>
+        </div>
+      </div>
+      <div class="slider-field">
+        <div class="range-wrapper">
+          <input id="color" name="color" type="range" min="0" max="15" step="1" value="0">
+          <span class="range-value" aria-hidden="true">Black</span>
+        </div>
+      </div>
     </div>
+    <button id="clear">Clear</button>
+    <button id="submit">Submit</button>
   </div>
   <div class="drawing-board">
     <!-- <canvas id="drawing-board" width=960 height=540 style="border:5px solid #000000;"></canvas> -->

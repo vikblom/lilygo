@@ -11,41 +11,82 @@ canvas.height = Math.min(960, screen.height-10-toolbar.offsetHeight); // Minus t
 // canvas.height = window.innerHeight - canvasOffsetY;
 
 let isPainting = false;
-let lineWidth = 10;
+let lineWidth = 5;
 let startX;
 let startY;
+ctx.strokeStyle = getGrayValue(0);
 
 toolbar.addEventListener('click', e => {
     if (e.target.id === 'clear') {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
     if (e.target.id === 'submit') {
-	  var dataURL = canvas.toDataURL();
-	  console.log(dataURL);
-	  fetch('/image', {
-		method: 'POST',
-		headers: {'Content-Type':'application/x-www-form-urlencoded'},
-		body: dataURL
-	  }).then((e) => {
-		if (e.status === 200) {
-		  ctx.clearRect(0, 0, canvas.width, canvas.height);
-		} else {
-		  window.alert("Something went wrong!");
-		}
-	  }).catch((err) => {
-		console.log(err);
-		window.alert("Something went wrong!");
-	  })
+      var dataURL = canvas.toDataURL();
+      console.log(dataURL);
+      fetch('/image', {
+        method: 'POST',
+        headers: {'Content-Type':'application/x-www-form-urlencoded'},
+        body: dataURL
+      }).then((e) => {
+        if (e.status === 200) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        } else {
+          window.alert("Something went wrong!");
+        }
+      }).catch((err) => {
+        console.log(err);
+        window.alert("Something went wrong!");
+      })
+    }
+});
+
+toolbar.addEventListener('input', e => {
+    if (e.target.matches('input[type=range]')) {
+        updateRangeBubble(e.target);
     }
 });
 
 toolbar.addEventListener('change', e => {
-    if(e.target.id === 'stroke') {
-        ctx.strokeStyle = e.target.value;
-    }
     if(e.target.id === 'lineWidth') {
-        lineWidth = e.target.value;
+        lineWidth = Number(e.target.value);
+        updateRangeBubble(e.target);
     }
+    if(e.target.id === 'color') {
+        ctx.strokeStyle = getGrayValue(Number(e.target.value));
+        updateRangeBubble(e.target);
+    }
+});
+
+function getGrayValue(level) {
+    const gray = Math.round((level / 15) * 255);
+    return `rgb(${gray}, ${gray}, ${gray})`;
+}
+
+function updateRangeBubble(range) {
+    const wrapper = range.closest('.range-wrapper');
+    if (!wrapper) return;
+    const valueLabel = wrapper.querySelector('.range-value');
+    if (!valueLabel) return;
+
+    const min = Number(range.min);
+    const max = Number(range.max);
+    const value = Number(range.value);
+    const percent = max === min ? 0 : (value - min) / (max - min) * 100;
+
+    wrapper.style.setProperty('--range-percent', `${percent}%`);
+
+    if (range.id === 'color') {
+        valueLabel.textContent = value === 0 ? 'Black' : value === 15 ? 'White' : `Gray ${value}`;
+    } else {
+        valueLabel.textContent = value;
+    }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    const lineWidthRange = document.getElementById('lineWidth');
+    const colorRange = document.getElementById('color');
+    if (lineWidthRange) updateRangeBubble(lineWidthRange);
+    if (colorRange) updateRangeBubble(colorRange);
 });
 
 const draw = (e) => {
