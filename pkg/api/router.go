@@ -390,7 +390,13 @@ func (s *Server) handleGetImage(w http.ResponseWriter, r *http.Request) {
 	// The web input is transposed, y is the "long" dimension.
 	for i := range min(540, max.X) {
 		for j := range min(960, max.Y) {
-			_, _, _, a := image.At(i, j).RGBA()
+			r, g, b, a := image.At(i, j).RGBA()
+			// If grayscale then replace alpha channel with weighted average.
+			// For some reason the grayscale is flipped.
+			if r > 0 || g > 0 || b > 0 {
+				avg := 0.299*float64(r) + 0.587*float64(g) + 0.114*float64(b)
+				a = 65535 - uint32(avg)
+			}
 			color := 16 - uint8(a/4096) // Downsize to a nibble, invert black to white.
 			if color < 16 {
 				drawPixel(framebuffer, j, height-1-i, color) // Mirror after transposing to preserve asymmetries.
