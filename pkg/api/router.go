@@ -210,6 +210,9 @@ func contentTypeMiddleware(next http.Handler) http.Handler {
 		if r.URL.Path == "/style.css" {
 			w.Header().Add("content-type", "text/css; charset=utf-8")
 		}
+		if r.URL.Path == "/camera.html" {
+			w.Header().Add("permissions-policy", "camera=(self)")
+		}
 		next.ServeHTTP(w, r)
 	})
 }

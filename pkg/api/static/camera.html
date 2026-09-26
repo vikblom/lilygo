@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  </head>
+  <body onload="init();">
+    <h1>Point and shoot</h1>
+    <p>
+      <button onclick="snapshot();" style="width:120px;height:50px;">Ka-chunk!</button>
+      <button onclick="submit();" style="width:120px;height:50px;">Submit</button>
+    </p>
+    <video id="video" hidden="hidden" width=400 height=400 autoplay></video>
+    <p> Screenshots : </p>
+    <canvas id="canvas" width="400" height="350"></canvas>
+  </body>
+  <script src="./camera.js"></script>
+</html>

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	_ "modernc.org/sqlite"
@@ -22,6 +23,7 @@ func New(path string) (*DB, error) {
 
 	// https://github.com/mattn/go-sqlite3?tab=readme-ov-file#faq
 	db.SetMaxOpenConns(1)
+	db.SetConnMaxIdleTime(time.Minute)
 
 	_, err = db.ExecContext(
 		context.Background(),
