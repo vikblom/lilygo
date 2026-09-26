@@ -102,12 +102,6 @@ void loop() {
         next = millis() + interval_ms;
 		Serial.println("loop()");
 
-
-		epd_poweron();
-		epd_clear();
-		epd_draw_grayscale_image(epd_full_screen(), framebuffer);
-		epd_poweroff();
-
 		// Restart from a clear image.
 		memset(framebuffer, 0xFF, EPD_WIDTH * EPD_HEIGHT / 2);
 
